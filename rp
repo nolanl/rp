@@ -161,24 +161,21 @@ while true; do
         fi
 
         unset allfiles files
-        declare -A allfiles files
+        declare -A allfiles
         allfiles[$filename]=1
 
         while IFS= read -r -t $INTERVAL filename; do
             allfiles[$filename]=1
         done
 
-        #XXX switch files to be a non-assoc array, and use readarray
-        while IFS= read -r filename; do
-            files[$filename]=1
-        done < <(for f in "${!allfiles[@]}"; do echo -E "$f"; done |
-                     git check-ignore -v -n --stdin | awk '/^::\t/ {sub(/^::\t/,""); print}')
+        readarray -t files < <(printf '%s\n' "${!allfiles[@]}" \
+                                   | git check-ignore -v -n --stdin | \
+                                   awk '/^::\t/ {sub(/^::\t/,""); print}')
 
         if [ ${#files[@]} -gt 0 ]; then
             #XXX--ignore-errors? --force?
             if ! rsync -avuzAX --delete --ignore-missing-args --delete-missing-args \
-                 --files-from=<(for f in "${!files[@]}"; do echo -E "$f"; done) \
-                 . "$REMOTELOC"; then
+                 --files-from=<(printf '%s\n' "${files[@]}") . "$REMOTELOC"; then
                 echo "Incremental rsync failed!" >&1
                 exit 76
             fi
