@@ -1,0 +1,187 @@
+#!/bin/bash
+
+DAEMON_TIMEOUT=3600
+INTERVAL=0.5
+
+function usage {
+    echo "Usage: $0 (--init remotehost|command [arg...])" >&2
+    exit 99
+}
+if [ -z "$1" ]; then
+    usage
+fi
+
+GITROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+if [ -z "$GITROOT" ]; then
+    echo "Not in a git project!" >&2
+    exit 98
+fi
+
+PROJNAME="$(echo "$GITROOT" | tr / - | cut -c2-)"
+PROJFILE="$HOME/.local/share/rp/$PROJNAME"
+
+RUNDIR="${XDG_RUNTIME_DIR:-/run/user/${UID}}"
+PROJPIDFILE="$RUNDIR/rp/$PROJNAME.pid"
+
+REMOTELOC="$(cat "$PROJFILE" 2>/dev/null)"
+REMOTEDIR="$(echo "$REMOTELOC" | cut -d':' -f2)"
+
+function runcmd {
+    if echo "$REMOTELOC" | grep -q '[:]'; then
+        # shellcheck disable=SC2029
+        ssh "$(echo "$REMOTELOC" | cut -d':' -f1)" "$*"
+    else
+        $SHELL -c "$*"
+    fi
+}
+
+function check_daemon {
+    if [ -d "$RUNDIR" ]; then
+        mkdir -p "$(dirname "$PROJPIDFILE")"
+    else
+        echo "XDG_RUNTIME_DIR $RUNDIR doesn't exist. WTF?" >&2
+        exit 89
+    fi
+
+    ourproc="/proc/$(cat "$PROJPIDFILE" 2>/dev/null)"
+    if [ -f "$PROJPIDFILE" ] && [ -f "$ourproc/cmdline" ] &&
+           tr -d '\0' <"$ourproc/cmdline" | grep -Eq 'bash.+rp--runasdaemon$' &&
+           [ "$(readlink "$ourproc/cwd")" = "$GITROOT" ]; then
+        return #Already running.
+    fi
+    (cd "$GITROOT" || exit 98; setsid "$0" --runasdaemon &>"$PROJFILE.log" < /dev/null &)
+
+    #XXX Catch daemon failure to start here somehow.
+    while [ ! -f "$PROJPIDFILE" ]; do
+        sleep 0.1
+    done
+}
+
+if [ "$1" = '--init' ]; then
+    if [ -z "$2" ]; then
+        usage
+    fi
+
+    mkdir -p "$(dirname "$PROJFILE")"
+
+    if echo "$2" | grep -q '[:]'; then #Full host:/path/to/remotedir
+        REMOTELOC="$2"
+    elif echo "$2" | grep -q '[/]'; then #Local /path/to/remotedir
+        REMOTELOC="$(realpath "$2")"
+    else #Just the hostname
+        REMOTELOC="$2:$GITROOT"
+    fi
+    REMOTEDIR="$(echo "$REMOTELOC" | cut -d':' -f2)"
+
+    if runcmd "[ ! -d \"$REMOTEDIR\" ]"; then
+        echo "Destination directory $REMOTELOC doesn't exist!" >&2
+        exit 88
+    fi
+
+    echo "$REMOTELOC" > "$PROJFILE"
+
+    check_daemon
+
+    exit 0
+elif [ "$1" = '--killdaemon' ]; then
+    [ -f "$PROJPIDFILE" ] && exec kill "$(cat "$PROJPIDFILE")"
+    exit 0
+elif [ "$1" != '--runasdaemon' ]; then #Run remote command
+    check_daemon
+
+    (
+        if ! flock -n 9; then
+            echo "flock of $PROJPIDFILE failed" >&2
+            exit 60
+        fi
+        LPWD="$(pwd)"
+        REL=${LPWD:${#GITROOT}}
+        CMD="cd \"$REMOTEDIR$REL\"; "
+        for p in "$@"; do
+            CMD="$CMD \"$p\""
+        done
+        runcmd "$CMD"
+    ) 9<"$PROJPIDFILE" || exit $?
+
+    exit 0
+fi
+
+##
+## Daemon
+##
+
+#XXX Add logging to stderr.
+
+#XXX Filter out some obvious .gitignores from inotify watchlist. Need to restart if
+#    .gitignore changes (do we sync pending changes first? Probably?)
+#    git ls-files --exclude-standard -coi --directory | grep '/$'
+
+trap 'rm -f $PROJPIDFILE; kill -9 $COPROC_PID' EXIT
+echo $$ > "$PROJPIDFILE"
+
+echo "Daemon started. Syncing to $REMOTELOC"
+
+for e in modify attrib close_write move create delete; do
+    EVENTS="$EVENTS -e $e"
+done
+# shellcheck disable=SC2086
+coproc inotifywait -q -r -m --format "%w%f" $EVENTS .
+
+#Initial sync
+(
+    if ! flock -n 9; then
+            echo "flock of $PROJPIDFILE failed" >&2
+            exit 78
+    fi
+
+    echo "Initial rsync"
+    if ! rsync -avuzAX --files-from=<(git ls-files --exclude-standard -co --directory; echo .git/) \
+         . "$REMOTELOC"; then
+        echo Initial rsync failed! >&1
+        exit 79
+    fi
+
+    join -v 2 \
+         <(git ls-files --exclude-standard -co --directory | sort) \
+         <(runcmd "cd \"$REMOTEDIR\"; git ls-files --exclude-standard -co --directory | sort") \
+        | runcmd "cd \"$REMOTEDIR\"; xargs rm -rf"
+) 9<"$PROJPIDFILE" || exit $?
+
+#Incremental sync
+echo "Going incremental"
+while true; do
+    if ! IFS= read -r -t $DAEMON_TIMEOUT filename; then
+        echo "Daemon exiting due to inactivity after $DAEMON_TIMEOUT seconds."
+        exit #timeout/EOF
+    fi
+    (
+        if ! flock -n 9; then
+            echo "flock of $PROJPIDFILE failed for incremental" >&2
+            exit 77
+        fi
+
+        unset allfiles files
+        declare -A allfiles files
+        allfiles[$filename]=1
+
+        while IFS= read -r -t $INTERVAL filename; do
+            allfiles[$filename]=1
+        done
+
+        #XXX switch files to be a non-assoc array, and use readarray
+        while IFS= read -r filename; do
+            files[$filename]=1
+        done < <(for f in "${!allfiles[@]}"; do echo -E "$f"; done |
+                     git check-ignore -v -n --stdin | awk '/^::\t/ {sub(/^::\t/,""); print}')
+
+        if [ ${#files[@]} -gt 0 ]; then
+            #XXX--ignore-errors? --force?
+            if ! rsync -avuzAX --delete --ignore-missing-args --delete-missing-args \
+                 --files-from=<(for f in "${!files[@]}"; do echo -E "$f"; done) \
+                 . "$REMOTELOC"; then
+                echo "Incremental rsync failed!" >&1
+                exit 76
+            fi
+        fi
+        ) 9<"$PROJPIDFILE" || exit $?
+done <&"${COPROC[0]}"
