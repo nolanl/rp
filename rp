@@ -135,7 +135,7 @@ coproc inotifywait -q -r -m --format "%w%f" $EVENTS .
     fi
 
     echo "Initial rsync"
-    if ! rsync -avuzAX --files-from=<(git ls-files --exclude-standard -co --directory; echo .git/) \
+    if ! rsync -avuzAX --files-from=<(git ls-files --exclude-standard -co --directory; find .git) \
          . "$REMOTELOC"; then
         echo Initial rsync failed! >&1
         exit 79
