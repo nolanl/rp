@@ -116,8 +116,6 @@ fi
 ## Daemon
 ##
 
-#XXX Add logging to stderr.
-
 #XXX Filter out some obvious .gitignores from inotify watchlist. Need to restart if
 #    .gitignore changes (do we sync pending changes first? Probably?)
 #    git ls-files --exclude-standard -coi --directory | grep '/$'
@@ -178,6 +176,8 @@ while true; do
         readarray -t files < <(printf '%s\n' "${!allfiles[@]}" \
                                    | git check-ignore -v -n --stdin | \
                                    awk '/^::\t/ {sub(/^::\t/,""); print}')
+
+        echo About to sync: "${files[@]}"
 
         if [ ${#files[@]} -gt 0 ]; then
             #XXX--ignore-errors? --force?
