@@ -16,7 +16,7 @@ cd "$BUILDDIR/src repo" || fail 99
 
 #Setup initial repo, and populate it a bit.
 git init .
-echo "ignored" > .gitignore
+echo "ignored*" > .gitignore
 mkdir "test dir"
 touch file
 touch ignored
@@ -48,13 +48,16 @@ $RP true || fail 97 #Make sure the daemon has completed initial sync.
 #Test incremental changes.
 mkdir -p "incr dir/a/b/c/d"
 touch "incr dir/a/b/c/file"
+touch ignored2
 rm file
 
 $RP true || fail 97
 
 #[ -d "$DST/incr dir/a/b/c/d" ] || fail 79 #race in inotifywait for new directories.
 [ -f "$DST/incr dir/a/b/c/file" ] || fail 78
-[ ! -f "$DST/file" ] || fail 77
+[ ! -f "$DST/ignored" ] || fail 77
+[ ! -f "$DST/ignored2" ] || fail 76
+[ ! -f "$DST/file" ] || fail 75
 
 #Check that repos are the same
 [ "$(find .git | wc -l)" -eq "$(find "$DST/.git" | wc -l)" ] || fail 69
