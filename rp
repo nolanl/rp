@@ -3,6 +3,11 @@
 DAEMON_TIMEOUT=3600
 INTERVAL=0.5
 
+if ! which inotifywait git rsync >/dev/null; then
+    echo One of: inotifywait git rsync is not installed! >&2
+    exit 100
+fi
+
 function usage {
     echo "Usage: $0 (--init remotehost|command [arg...])" >&2
     exit 99
@@ -141,6 +146,7 @@ coproc inotifywait -q -r -m --format "%w%f" $EVENTS .
         exit 79
     fi
 
+    #XXX This will miss deletes in .git/**
     join -v 2 \
          <(git ls-files --exclude-standard -co --directory | sort) \
          <(runcmd "cd \"$REMOTEDIR\"; git ls-files --exclude-standard -co --directory | sort") \
