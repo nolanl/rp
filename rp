@@ -59,7 +59,7 @@ function check_daemon {
 
     #XXX Catch daemon failure to start here somehow.
     while [ ! -f "$PROJPIDFILE" ]; do
-        sleep 0.1
+        sleep 0.01
     done
 }
 
