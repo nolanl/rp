@@ -1,0 +1,12 @@
+name: rp build lint test
+
+on: [push]
+jobs:
+  rp-build-lint-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Lint scripts
+        - run: make shellcheck
+      - name: Run tests
+        - run: make test
