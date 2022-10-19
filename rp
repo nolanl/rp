@@ -54,6 +54,7 @@ function check_daemon {
            [ "$(readlink "$ourproc/cwd")" = "$GITROOT" ]; then
         return #Already running.
     fi
+    rm -f "$PROJPIDFILE"
     (cd "$GITROOT" || exit 98; setsid "$0" --runasdaemon &>"$PROJFILE.log" < /dev/null &)
 
     #XXX Catch daemon failure to start here somehow.
@@ -100,7 +101,7 @@ elif [ "$1" != '--runasdaemon' ]; then #Run remote command
 
     (
         if ! flock -o 9; then
-            echo "flock of $PROJPIDFILE for command failed: $?" >&2
+            echo "flock of $PROJFILE for command failed: $?" >&2
             exit 60
         fi
         LPWD="$(pwd)"
@@ -110,7 +111,7 @@ elif [ "$1" != '--runasdaemon' ]; then #Run remote command
             CMD="$CMD \"$p\""
         done
         runcmd "$CMD"
-    ) 9<"$PROJPIDFILE" || exit $?
+    ) 9<"$PROJFILE" || exit $?
 
     exit 0
 fi
@@ -123,23 +124,21 @@ fi
 #    .gitignore changes (do we sync pending changes first? Probably?)
 #    git ls-files --exclude-standard -coi --directory | grep '/$'
 
-trap 'rm -f $PROJPIDFILE; kill -9 $COPROC_PID' EXIT
-echo $$ > "$PROJPIDFILE"
-
 echo "Daemon started. Syncing to $REMOTELOC"
 
-for e in modify attrib close_write move create delete; do
-    EVENTS="$EVENTS -e $e"
-done
 # shellcheck disable=SC2086
-coproc inotifywait -q -r -m --format "%w%f" $EVENTS .
+coproc inotifywait -q -r -m --format "%w%f" -e modify -e attrib -e close_write -e move -e create -e delete .
+
+trap 'rm -f $PROJPIDFILE; kill -9 $COPROC_PID' EXIT
+OURPID="$$"
 
 #Initial sync
 (
     if ! flock 9; then
-            echo "flock of $PROJPIDFILE failed: $?" >&2
+            echo "flock of $PROJFILE failed: $?" >&2
             exit 78
     fi
+    echo $OURPID > "$PROJPIDFILE" #Do it inside the lock, so it can't race with running a command.
 
     echo "Initial rsync"
     if ! rsync -avuzAX --files-from=<(git ls-files --exclude-standard -co; find .git) \
@@ -153,7 +152,7 @@ coproc inotifywait -q -r -m --format "%w%f" $EVENTS .
          <(git ls-files --exclude-standard -co | sort) \
          <(runcmd "cd \"$REMOTEDIR\"; git ls-files --exclude-standard -co | sort") \
         | runcmd "cd \"$REMOTEDIR\"; xargs rm -rf"
-) 9<"$PROJPIDFILE" || exit $?
+) 9<"$PROJFILE" || exit $?
 
 #Incremental sync
 echo "Going incremental"
@@ -164,7 +163,7 @@ while true; do
     fi
     (
         if ! flock 9; then
-            echo "flock of $PROJPIDFILE failed for incremental: $?" >&2
+            echo "flock of $PROJFILE failed for incremental: $?" >&2
             exit 77
         fi
 
@@ -190,5 +189,5 @@ while true; do
                 exit 76
             fi
         fi
-        ) 9<"$PROJPIDFILE" || exit $?
+        ) 9<"$PROJFILE" || exit $?
 done <&"${COPROC[0]}"
