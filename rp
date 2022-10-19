@@ -92,6 +92,9 @@ elif [ "$1" = '--killdaemon' ]; then
     #XXX Check that the PID is our process first!
     [ -f "$PROJPIDFILE" ] && exec kill "$(cat "$PROJPIDFILE")"
     exit 0
+elif [ "$1" = '--uninit' ]; then
+    rm -f "$PROJFILE" "$PROJFILE.log"
+    exit 0
 elif [ "$1" != '--runasdaemon' ]; then #Run remote command
     check_daemon
 
