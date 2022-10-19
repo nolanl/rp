@@ -89,6 +89,7 @@ if [ "$1" = '--init' ]; then
 
     exit 0
 elif [ "$1" = '--killdaemon' ]; then
+    #XXX Check that the PID is our process first!
     [ -f "$PROJPIDFILE" ] && exec kill "$(cat "$PROJPIDFILE")"
     exit 0
 elif [ "$1" != '--runasdaemon' ]; then #Run remote command
@@ -140,7 +141,7 @@ coproc inotifywait -q -r -m --format "%w%f" $EVENTS .
     fi
 
     echo "Initial rsync"
-    if ! rsync -avuzAX --files-from=<(git ls-files --exclude-standard -co --directory; find .git) \
+    if ! rsync -avuzAX --files-from=<(git ls-files --exclude-standard -co; find .git) \
          . "$REMOTELOC"; then
         echo Initial rsync failed! >&1
         exit 79
@@ -148,8 +149,8 @@ coproc inotifywait -q -r -m --format "%w%f" $EVENTS .
 
     #XXX This will miss deletes in .git/**
     join -v 2 \
-         <(git ls-files --exclude-standard -co --directory | sort) \
-         <(runcmd "cd \"$REMOTEDIR\"; git ls-files --exclude-standard -co --directory | sort") \
+         <(git ls-files --exclude-standard -co | sort) \
+         <(runcmd "cd \"$REMOTEDIR\"; git ls-files --exclude-standard -co | sort") \
         | runcmd "cd \"$REMOTEDIR\"; xargs rm -rf"
 ) 9<"$PROJPIDFILE" || exit $?
 
