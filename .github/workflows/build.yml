@@ -1,12 +1,25 @@
 name: rp build lint test
 
+env:
+  #github's ubuntu has an old shellcheck which emits spurious warnings.
+  SHELLCHECK_OPTS: '--exclude=SC2230'
+  RP_TESTS_DUMP_LOGS: '1'
+
 on: [push]
 jobs:
   rp-build-lint-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - name: Install required deps
+        run: |
+          sudo apt update
+          sudo apt -y install inotify-tools git rsync
       - name: Lint scripts
-        - run: make shellcheck
+        run: make shellcheck
       - name: Run tests
-        - run: make test
+        run: make test
+      - name: ls src repo
+        run: ls -lRa 'build/src repo'
+      - name: ls dst repo
+        run: ls -lRa 'build/dst repo'

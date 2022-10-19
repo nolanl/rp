@@ -66,6 +66,10 @@ $RP true || fail 97
       "$(git -C "$DST" ls-files -co --exclude-standard | wc -l)" ] || fail 68
 
 #Cleanup
+if [ -n "$RP_TESTS_DUMP_LOGS" ]; then
+    echo Dameon logs:
+    cat ~/.local/share/rp/*.log
+fi
 $RP --uninit
 echo Success
 exit 0

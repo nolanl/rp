@@ -16,7 +16,7 @@ if [ -z "$1" ]; then
     usage
 fi
 
-GITROOT="$(realpath "$(git rev-parse --show-toplevel 2>/dev/null)")"
+GITROOT="$(realpath "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null)"
 if [ -z "$GITROOT" ]; then
     echo "Not in a git project!" >&2
     exit 98
@@ -55,6 +55,7 @@ function check_daemon {
         return #Already running.
     fi
     rm -f "$PROJPIDFILE"
+    echo "Starting rp daemon. Logging to $PROJFILE.log"
     (cd "$GITROOT" || exit 98; setsid "$0" --runasdaemon &>"$PROJFILE.log" < /dev/null &)
 
     #XXX Catch daemon failure to start here somehow.
