@@ -148,10 +148,9 @@ OURPID="$$"
         exit 79
     fi
 
-    #XXX This will miss deletes in .git/**
     join -v 2 \
-         <(git ls-files --exclude-standard -co | sort) \
-         <(runcmd "cd \"$REMOTEDIR\"; git ls-files --exclude-standard -co | sort") \
+         <((git ls-files --exclude-standard -co; find .git) | sort) \
+         <(runcmd "cd \"$REMOTEDIR\"; (git ls-files --exclude-standard -co; find .git) | sort") \
         | runcmd "cd \"$REMOTEDIR\"; xargs rm -rf"
 ) 9<"$PROJFILE" || exit $?
 
