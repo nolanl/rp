@@ -127,9 +127,8 @@ fi
 
 echo "Daemon started. Syncing to $REMOTELOC"
 
-# shellcheck disable=SC2086
-coproc inotifywait -q -r -m --format "%w%f" -e modify -e attrib -e close_write -e move -e create -e delete .
-
+coproc inotifywait -q -r -m --format "%e %w%f" \
+       -e modify -e attrib -e close_write -e move -e create -e delete .
 trap 'rm -f $PROJPIDFILE; kill -9 $COPROC_PID' EXIT
 OURPID="$$"
 
@@ -154,10 +153,22 @@ OURPID="$$"
         | runcmd "cd \"$REMOTEDIR\"; xargs rm -rf"
 ) 9<"$PROJFILE" || exit $?
 
+function handle_event { #allfiles, event, path
+    local -n allfiles_ref=$1
+    # shellcheck disable=SC2034 # shellcheck doesn't know about namerefs.
+    if echo "$2" | grep -q 'CREATE,ISDIR'; then
+        while IFS= read -r f; do
+            allfiles_ref[$f]=1
+        done < <(find "$3")
+    else
+        allfiles_ref[$3]=1
+    fi
+}
+
 #Incremental sync
 echo "Going incremental"
 while true; do
-    if ! IFS= read -r -t $DAEMON_TIMEOUT filename; then
+    if ! IFS=' ' read -r -t $DAEMON_TIMEOUT events filename; then
         echo "Daemon exiting due to inactivity after $DAEMON_TIMEOUT seconds."
         exit #timeout/EOF
     fi
@@ -169,10 +180,11 @@ while true; do
 
         unset allfiles files
         declare -A allfiles
-        allfiles[$filename]=1
 
-        while IFS= read -r -t $INTERVAL filename; do
-            allfiles[$filename]=1
+        handle_event allfiles "$events" "$filename"
+
+        while IFS=' ' read -r -t $INTERVAL events filename; do
+            handle_event allfiles "$events" "$filename"
         done
 
         readarray -t files < <(printf '%s\n' "${!allfiles[@]}" \
@@ -185,7 +197,7 @@ while true; do
             #XXX--ignore-errors? --force?
             if ! rsync -avuzAX --delete --ignore-missing-args --delete-missing-args \
                  --files-from=<(printf '%s\n' "${files[@]}") . "$REMOTELOC"; then
-                echo "Incremental rsync failed!" >&1
+                echo "Incremental rsync failed!" >&2
                 exit 76
             fi
         fi

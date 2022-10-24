@@ -54,7 +54,7 @@ rm file
 
 $RP true || fail 97
 
-#[ -d "$DST/incr dir/a/b/c/d" ] || fail 79 #race in inotifywait for new directories.
+[ -d "$DST/incr dir/a/b/c/d" ] || fail 79 #race in inotifywait for new directories.
 [ -f "$DST/incr dir/a/b/c/file" ] || fail 78
 [ ! -f "$DST/ignored" ] || fail 77
 [ ! -f "$DST/ignored2" ] || fail 76
