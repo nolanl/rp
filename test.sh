@@ -8,6 +8,8 @@ mkdir -p ./build
 BUILDDIR="$(realpath ./build)"
 RP="$(realpath ./rp)"
 
+$RP --killdaemon
+
 rm -rf "$BUILDDIR"
 mkdir -p "$BUILDDIR"/{src,dst}\ repo
 
@@ -29,7 +31,6 @@ git commit -q -m "test commit"
 touch "test dir/stagedfile"
 git add "test dir/stagedfile"
 
-$RP --killdaemon
 trap '$RP --killdaemon' EXIT
 $RP --init "$DST" || fail 98
 
