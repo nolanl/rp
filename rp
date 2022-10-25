@@ -147,10 +147,10 @@ OURPID="$$"
         exit 79
     fi
 
-    join -v 2 \
+    join -t '' -v 2 \
          <((git ls-files --exclude-standard -co; find .git) | sort) \
          <(runcmd "cd \"$REMOTEDIR\"; (git ls-files --exclude-standard -co; find .git) | sort") \
-        | runcmd "cd \"$REMOTEDIR\"; xargs rm -rf"
+        | runcmd "cd \"$REMOTEDIR\"; xargs -d '\n' --no-run-if-empty rm -rf"
 ) 9<"$PROJFILE" || exit $?
 
 function handle_event { #allfiles, event, path
