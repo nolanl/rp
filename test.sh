@@ -46,6 +46,9 @@ $RP true || fail 97 #Make sure the daemon has completed initial sync.
 [ -f "$DST/test dir/stagedfile" ] || fail 83
 [ ! -f "$DST/ignored" ] || fail 82
 
+$RP ls "test dir" >/dev/null || fail 81
+$RP ls "test dir/nothere" 2>/dev/null && fail 80
+
 #Test incremental changes.
 mkdir -p "incr dir/a/b/c/d"
 touch "incr dir/a/b/c/file"
