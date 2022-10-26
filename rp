@@ -55,12 +55,16 @@ function check_daemon {
         return #Already running.
     fi
     rm -f "$PROJPIDFILE"
-    echo "Starting rp daemon. Logging to $PROJFILE.log"
     (cd "$GITROOT" || exit 98; setsid "$0" --runasdaemon &>"$PROJFILE.log" < /dev/null &)
 
-    #XXX Catch daemon failure to start here somehow.
+    count=500
     while [ ! -f "$PROJPIDFILE" ]; do
         sleep 0.01
+        count=$((count - 1))
+        if [ $count -eq 0 ]; then
+            echo "Sync daemon hasn't started after 5 seconds. Check $PROJFILE.log" >&2
+            exit 97
+        fi
     done
 }
 
@@ -157,6 +161,7 @@ function handle_event { #allfiles, event, path
     local -n allfiles_ref=$1
     # shellcheck disable=SC2034 # shellcheck doesn't know about namerefs.
     if echo "$2" | grep -q 'CREATE,ISDIR'; then
+        #Mostly workaround a race w/ inotifywait adding watches to newly created directories.
         while IFS= read -r f; do
             allfiles_ref[$f]=1
         done < <(find "$3")
