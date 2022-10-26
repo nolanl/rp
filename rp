@@ -40,7 +40,17 @@ function runcmd {
     fi
 }
 
-function check_daemon {
+function daemon_running {
+    ourproc="/proc/$(cat "$PROJPIDFILE" 2>/dev/null)"
+    if [ -f "$PROJPIDFILE" ] && [ -f "$ourproc/cmdline" ] &&
+           tr -d '\0' <"$ourproc/cmdline" | grep -Eq 'bash.+rp--runasdaemon$' &&
+           [ "$(readlink "$ourproc/cwd")" = "$GITROOT" ]; then
+        return 0 #Already running.
+    fi
+    return 1
+}
+
+function ensure_daemon {
     if [ -d "$RUNDIR" ]; then
         mkdir -p "$(dirname "$PROJPIDFILE")"
     else
@@ -48,10 +58,7 @@ function check_daemon {
         exit 89
     fi
 
-    ourproc="/proc/$(cat "$PROJPIDFILE" 2>/dev/null)"
-    if [ -f "$PROJPIDFILE" ] && [ -f "$ourproc/cmdline" ] &&
-           tr -d '\0' <"$ourproc/cmdline" | grep -Eq 'bash.+rp--runasdaemon$' &&
-           [ "$(readlink "$ourproc/cwd")" = "$GITROOT" ]; then
+    if daemon_running; then
         return #Already running.
     fi
     rm -f "$PROJPIDFILE"
@@ -90,20 +97,19 @@ if [ "$1" = '--init' ]; then
     fi
 
     echo "$REMOTELOC" > "$PROJFILE"
-
-    check_daemon
+    ensure_daemon
 
     exit 0
 elif [ "$1" = '--killdaemon' ]; then
-    #XXX Check that the PID is our process first!
-    [ -f "$PROJPIDFILE" ] && exec kill "$(cat "$PROJPIDFILE")"
+    if daemon_running; then
+        exec kill "$(cat "$PROJPIDFILE")"
+    fi
     exit 0
 elif [ "$1" = '--uninit' ]; then
     rm -f "$PROJFILE" "$PROJFILE.log"
     exit 0
 elif [ "$1" != '--runasdaemon' ]; then #Run remote command
-    check_daemon
-
+    ensure_daemon
     (
         if ! flock -o 9; then
             echo "flock of $PROJFILE for command failed: $?" >&2
