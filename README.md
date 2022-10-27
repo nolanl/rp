@@ -18,6 +18,7 @@ $ cd projects/myproject
 
 $ rp --init remotemachine.example.net
 $ #rp --init is only needed once per repo.
+$ #WARNING! Changes in the remote repo will be clobbered to make it match the local repo!
 
 $ #hack hack hackity hack
 
