@@ -31,11 +31,34 @@ git commit -q -m "test commit"
 touch "test dir/stagedfile"
 git add "test dir/stagedfile"
 
-trap '$RP --killdaemon' EXIT
-$RP --init "$DST" || fail 98
+if [ -n "$SSHTEST" ]; then
+    docker build --build-arg UNAME="$(whoami)" --build-arg UID="$(id -u)" --build-arg GID="$(id -g)" \
+           -t rp-sshtest -f ../../docker/Dockerfile ../../docker
+    ssh-keygen -t ed25519 -f "$BUILDDIR/sshkey" -N ''
+    echo "Host localhost" >"$BUILDDIR/sshconfig"
+    echo "    Port 4222" >>"$BUILDDIR/sshconfig"
+    echo "    IdentityFile $BUILDDIR/sshkey" >>"$BUILDDIR/sshconfig"
+    echo "    IdentitiesOnly yes" >>"$BUILDDIR/sshconfig"
+    echo "    UserKnownHostsFile /dev/null" >>"$BUILDDIR/sshconfig"
+    echo "    StrictHostKeyChecking no" >>"$BUILDDIR/sshconfig"
+    echo "    LogLevel quiet" >>"$BUILDDIR/sshconfig"
+    docker run -d --rm -v "$DST:$DST" -v "$BUILDDIR/sshkey.pub:/home/$(whoami)/.ssh/authorized_keys" \
+           -p 127.0.0.1:4222:22 --name rp-sshtest rp-sshtest
+    while ! docker logs rp-sshtest | grep -q '^SSH_UP$'; do
+        sleep 0.1
+    done
+
+    export EXTRASSHARGS="-F $BUILDDIR/sshconfig"
+    trap '$RP --killdaemon; docker kill rp-sshtest >/dev/null' EXIT
+    $RP --init "localhost:$DST" || fail 98
+else
+    trap '$RP --killdaemon' EXIT
+    $RP --init "$DST" || fail 98
+fi
 
 #Test initial sync.
 $RP true || fail 97 #Make sure the daemon has completed initial sync.
+$RP false && fail 96 #Make sure rp is returning cmd status.
 [ -f "$DST/.git/config" ] || fail 89
 [ -f "$DST/.git/info/exclude" ] || fail 88
 [ -f "$DST/file" ] || fail 87
@@ -90,5 +113,5 @@ if [ -n "$RP_TESTS_DUMP_LOGS" ]; then
     cat ~/.local/share/rp/*.log
 fi
 $RP --uninit
-echo Success
+echo; echo; echo Success
 exit 0

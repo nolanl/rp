@@ -1,7 +1,7 @@
 all: shellcheck test
 
 shellcheck:
-	shellcheck rp test.sh
+	shellcheck --severity=info rp test.sh
 
 test:
 	bash test.sh

@@ -33,8 +33,8 @@ REMOTEDIR="$(echo "$REMOTELOC" | cut -d':' -f2)"
 
 function runcmd {
     if echo "$REMOTELOC" | grep -q '[:]'; then
-        # shellcheck disable=SC2029
-        ssh "$(echo "$REMOTELOC" | cut -d':' -f1)" "$*"
+        # shellcheck disable=SC2029,SC2086
+        ssh $EXTRASSHARGS "$(echo "$REMOTELOC" | cut -d':' -f1)" "$*"
     else
         $SHELL -c "$*"
     fi
@@ -90,6 +90,8 @@ if [ "$1" = '--init' ]; then
         REMOTELOC="$2:$GITROOT" #GITROOT is already a realpath.
     fi
     REMOTEDIR="$(echo "$REMOTELOC" | cut -d':' -f2)"
+
+    #XXX Detect missing git/rsync on remote side!
 
     if runcmd "[ ! -d \"$REMOTEDIR\" ]"; then
         echo "Destination directory $REMOTELOC doesn't exist!" >&2
