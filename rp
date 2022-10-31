@@ -157,9 +157,10 @@ OURPID="$$"
         exit 79
     fi
 
-    join -t '' -v 2 \
-         <((git ls-files --exclude-standard -co; find .git) | sort) \
-         <(runcmd "cd \"$REMOTEDIR\"; (git ls-files --exclude-standard -co; find .git) | sort") \
+    echo "Initial non-rsync based delete"
+    LC_ALL=C join -t '' -v 2 \
+         <((git ls-files --exclude-standard -co; find .git) | LC_ALL=C sort -s) \
+         <(runcmd "cd \"$REMOTEDIR\"; (git ls-files --exclude-standard -co; find .git) | LC_ALL=C sort -s") \
         | runcmd "cd \"$REMOTEDIR\"; xargs -d '\n' --no-run-if-empty rm -rf"
 ) 9<"$PROJFILE" || exit $?
 
