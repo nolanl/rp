@@ -91,11 +91,13 @@ if [ "$1" = '--init' ]; then
     fi
     REMOTEDIR="$(echo "$REMOTELOC" | cut -d':' -f2)"
 
-    #XXX Detect missing git/rsync on remote side!
-
+    if ! runcmd "which git rsync >/dev/null"; then
+        echo "Remote $REMOTELOC must have git and rsync installed!" >&2
+        exit 88
+    fi
     if runcmd "[ ! -d \"$REMOTEDIR\" ]"; then
         echo "Destination directory $REMOTELOC doesn't exist!" >&2
-        exit 88
+        exit 87
     fi
 
     echo "$REMOTELOC" > "$PROJFILE"
