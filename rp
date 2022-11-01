@@ -138,14 +138,11 @@ fi
 ## Daemon
 ##
 
-#XXX Filter out some obvious .gitignores from inotify watchlist. Need to restart if
-#    .gitignore changes (do we sync pending changes first? Probably?)
-#    git ls-files --exclude-standard -coi --directory | grep '/$'
-
 echo "Daemon started. Syncing to $REMOTELOC"
 
 coproc inotifywait -q -r -m --format "%e %w%f" \
-       -e modify -e attrib -e close_write -e move -e create -e delete .
+       -e modify -e attrib -e close_write -e move -e create -e delete \
+       --fromfile <(git ls-files --exclude-standard -coi --directory | grep '/$' | sed 's,^,@./,1') .
 trap 'rm -f $PROJPIDFILE; kill -9 $COPROC_PID' EXIT
 OURPID="$$"
 
@@ -206,11 +203,18 @@ while true; do
             handle_event allfiles "$events" "$filename"
         done
 
+        echo Notified about: "${!allfiles[@]}"
+
         readarray -t files < <(printf '%s\n' "${!allfiles[@]}" \
                                    | git check-ignore -v -n --stdin | \
                                    awk '/^::\t/ {sub(/^::\t/,""); print}')
 
         echo About to sync: "${files[@]}"
+
+        if printf '%s\n' "${!allfiles[@]}" | grep -q '/.gitignore$'; then
+            echo ".gitignore file modified, killing daemon"
+            exit 1 #XXX would be nice to restart the daemon instead of killing it.
+        fi
 
         if [ ${#files[@]} -gt 0 ]; then
             #XXX--ignore-errors? --force?

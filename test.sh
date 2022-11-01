@@ -30,6 +30,7 @@ git add "test dir/committedfile"
 git commit -q -m "test commit"
 touch "test dir/stagedfile"
 git add "test dir/stagedfile"
+mkdir ignoreddir
 
 if [ -n "$SSHTEST" ]; then
     docker build --build-arg UNAME="$(whoami)" --build-arg UID="$(id -u)" --build-arg GID="$(id -g)" \
@@ -67,14 +68,16 @@ $RP false && fail 96 #Make sure rp is returning cmd status.
 [ -f "$DST/test dir/committedfile" ] || fail 84
 [ -f "$DST/test dir/stagedfile" ] || fail 83
 [ ! -f "$DST/ignored" ] || fail 82
+[ ! -d "$DST/ignoreddir" ] || fail 81
 
-$RP ls "test dir" >/dev/null || fail 81
+$RP ls "test dir" >/dev/null || fail 80
 $RP ls "test dir/nothere" 2>/dev/null && fail 80
 
 #Test incremental changes.
 mkdir -p "incr dir/a/b/c/d"
 touch "incr dir/a/b/c/file"
 touch ignored2
+touch ignoreddir/file
 rm file
 touch "incr dir/to delete 1"
 touch ".git/to delete 2"
@@ -84,9 +87,20 @@ $RP true || fail 97
 [ -f "$DST/incr dir/a/b/c/file" ] || fail 78
 [ ! -f "$DST/ignored" ] || fail 77
 [ ! -f "$DST/ignored2" ] || fail 76
-[ ! -f "$DST/file" ] || fail 75
-[ -f "$DST/incr dir/to delete 1" ] || fail 74
-[ -f "$DST/.git/to delete 2" ] || fail 73
+! $RP --dumplog | grep -q 'ignoreddir/file' || fail 74 #Check that the change event didn't even happen.
+[ ! -f "$DST/file" ] || fail 73
+[ -f "$DST/incr dir/to delete 1" ] || fail 72
+[ -f "$DST/.git/to delete 2" ] || fail 71
+
+#Test that touching a .gitignore file causes daemon restart.
+touch .gitignore
+for i in `seq 1 50`; do
+    if $RP --dumplog | grep -q '.gitignore file modified'; then
+        break
+    fi
+    sleep 0.1
+done
+[ ! "$i" -eq 50 ] || fail 70
 
 #Test non-incremental resyncs of an existing remote.
 $RP --killdaemon
