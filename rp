@@ -104,6 +104,9 @@ if [ "$1" = '--init' ]; then
     ensure_daemon
 
     exit 0
+elif [ "$1" = '--dumplog' ]; then
+    cat "$PROJFILE.log"
+    exit 0
 elif [ "$1" = '--killdaemon' ]; then
     if daemon_running; then
         exec kill "$(cat "$PROJPIDFILE")"

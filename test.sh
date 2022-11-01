@@ -110,7 +110,7 @@ $RP true || fail 97
 #Cleanup
 if [ -n "$RP_TESTS_DUMP_LOGS" ]; then
     echo Dameon logs:
-    cat ~/.local/share/rp/*.log
+    $RP --dumplog
 fi
 $RP --uninit
 echo; echo; echo Success
