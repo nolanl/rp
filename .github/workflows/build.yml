@@ -23,9 +23,3 @@ jobs:
         run: ls -lRa 'build/src repo'
       - name: ls dst repo
         run: ls -lRa 'build/dst repo'
-      - name: Run SSH tests
-        run: make sshtest
-      - name: SSH ls src repo
-        run: ls -lRa 'build/src repo'
-      - name: SSH ls dst repo
-        run: ls -lRa 'build/dst repo'
