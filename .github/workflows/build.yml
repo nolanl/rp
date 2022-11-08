@@ -20,6 +20,8 @@ jobs:
       - name: Run tests
         run: make test
       - name: ls src repo
+        if: success() || failure()
         run: ls -lRa 'build/src repo'
       - name: ls dst repo
+        if: success() || failure()
         run: ls -lRa 'build/dst repo'
