@@ -116,6 +116,11 @@ elif [ "$1" = '--uninit' ]; then
     rm -f "$PROJFILE" "$PROJFILE.log"
     exit 0
 elif [ "$1" != '--runasdaemon' ]; then #Run remote command
+    if ! [ -f "$PROJFILE" ]; then
+        echo "Project is not initialized, use --init" >&2
+        exit 59
+    fi
+
     ensure_daemon
     (
         if ! flock -o 9; then
