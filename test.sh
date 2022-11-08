@@ -1,6 +1,11 @@
 #!/bin/bash
 
 function fail {
+    echo
+    echo "FAILURE: $1"
+    echo DUMPING DAEMON LOGS:
+    $RP --dumplog
+    echo
     echo "FAILURE: $1"; exit "$1"
 }
 
