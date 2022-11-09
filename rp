@@ -161,7 +161,7 @@ OURPID="$$"
 
     echo "Initial rsync"
     if ! rsync -avuzAX --files-from=<(git ls-files --exclude-standard -co; find .git) \
-         --protect-args . "$REMOTELOC"; then
+         --protect-args -e "ssh $EXTRASSHARGS" . "$REMOTELOC"; then
         echo Initial rsync failed! >&1
         exit 79
     fi
@@ -224,7 +224,8 @@ while true; do
         if [ ${#files[@]} -gt 0 ]; then
             #XXX--ignore-errors? --force?
             if ! rsync -avuzAX --delete --ignore-missing-args --delete-missing-args \
-                 --files-from=<(printf '%s\n' "${files[@]}") --protect-args . "$REMOTELOC"; then
+                 --files-from=<(printf '%s\n' "${files[@]}") --protect-args \
+                 -e "ssh $EXTRASSHARGS" . "$REMOTELOC"; then
                 echo "Incremental rsync failed!" >&2
                 exit 76
             fi
