@@ -25,3 +25,11 @@ jobs:
       - name: ls dst repo
         if: success() || failure()
         run: ls -lRa 'build/dst repo'
+      - name: Run SSH tests
+        run: make sshtest
+      - name: SSH ls src repo
+        if: success() || failure()
+        run: ls -lRa 'build/src repo'
+      - name: SSH ls dst repo
+        if: success() || failure()
+        run: ls -lRa 'build/dst repo'
