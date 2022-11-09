@@ -127,10 +127,6 @@ $RP true || fail 97
       "$(git -C "$DST" ls-files -co --exclude-standard | wc -l)" ] || fail 18
 
 #Cleanup
-if [ -n "$RP_TESTS_DUMP_LOGS" ]; then
-    echo Dameon logs:
-    $RP --dumplog
-fi
 $RP --uninit
 echo; echo; echo Success
 exit 0

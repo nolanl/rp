@@ -3,7 +3,6 @@ name: rp build lint test
 env:
   #github's ubuntu has an old shellcheck which emits spurious warnings.
   SHELLCHECK_OPTS: '--exclude=SC2230'
-  RP_TESTS_DUMP_LOGS: '1'
 
 on: [push]
 jobs:
