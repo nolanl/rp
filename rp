@@ -9,7 +9,7 @@ if ! which inotifywait git rsync >/dev/null; then
 fi
 
 function usage {
-    echo "Usage: $0 (--init remotehost|command [arg...])" >&2
+    echo "Usage: $0 (--init remotehost|--killdaemon|--dumplog|--uninit|command [arg...])" >&2
     exit 99
 }
 if [ -z "$1" ]; then
