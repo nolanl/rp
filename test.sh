@@ -16,9 +16,8 @@ RP="$(realpath ./rp)"
 $RP --killdaemon
 
 rm -rf "$BUILDDIR"
-mkdir -p "$BUILDDIR"/{src,dst}\ repo
+mkdir -p "$BUILDDIR/src repo"
 
-DST="$BUILDDIR/dst repo"
 cd "$BUILDDIR/src repo" || fail 99
 
 #Setup initial repo, and populate it a bit.
@@ -38,6 +37,9 @@ git add "test dir/stagedfile"
 mkdir ignoreddir
 
 if [ -n "$SSHTEST" ]; then
+    SSHBUILDDIR="$BUILDDIR/sshbuild"
+    mkdir -p "$SSHBUILDDIR"
+    DST="$SSHBUILDDIR/dst repo"
     docker build --build-arg UNAME="$(whoami)" --build-arg UID="$(id -u)" --build-arg GID="$(id -g)" \
            -t rp-sshtest -f ../../docker/Dockerfile ../../docker
     ssh-keygen -t ed25519 -f "$BUILDDIR/sshkey" -N ''
@@ -48,8 +50,9 @@ if [ -n "$SSHTEST" ]; then
     echo "    UserKnownHostsFile /dev/null" >>"$BUILDDIR/sshconfig"
     echo "    StrictHostKeyChecking no" >>"$BUILDDIR/sshconfig"
     echo "    LogLevel quiet" >>"$BUILDDIR/sshconfig"
-    docker run -d --rm -v "$DST:$DST" -v "$BUILDDIR/sshkey.pub:/home/$(whoami)/.ssh/authorized_keys" \
-           -p 127.0.0.1:4222:22 --name rp-sshtest rp-sshtest
+    docker run -d --rm -p 127.0.0.1:4222:22 \
+           -v "$SSHBUILDDIR:$SSHBUILDDIR" -v "$BUILDDIR/sshkey.pub:/home/$(whoami)/.ssh/authorized_keys" \
+           --name rp-sshtest rp-sshtest
     while ! docker logs rp-sshtest | grep -q '^SSH_UP$'; do
         sleep 0.1
     done
@@ -58,6 +61,7 @@ if [ -n "$SSHTEST" ]; then
     trap '$RP --killdaemon; docker kill rp-sshtest >/dev/null' EXIT
     $RP --init "localhost:$DST" || fail 98
 else
+    DST="$BUILDDIR/dst repo"
     trap '$RP --killdaemon' EXIT
     $RP --init "$DST" || fail 98
 fi
