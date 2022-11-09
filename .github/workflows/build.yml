@@ -31,4 +31,4 @@ jobs:
         run: ls -lRa 'build/src repo'
       - name: SSH ls dst repo
         if: success() || failure()
-        run: ls -lRa 'build/dst repo'
+        run: ls -lRa 'build/sshbuild/dst repo'
