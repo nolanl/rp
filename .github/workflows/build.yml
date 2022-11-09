@@ -4,7 +4,11 @@ env:
   #github's ubuntu has an old shellcheck which emits spurious warnings.
   SHELLCHECK_OPTS: '--exclude=SC2230'
 
-on: [push]
+on:
+  push:
+  schedule:
+    - cron: '18 8 10 * *' #8:18 UTC on the 10th of every month.
+
 jobs:
   rp-build-lint-test:
     runs-on: ubuntu-latest
