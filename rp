@@ -116,6 +116,10 @@ elif [ "$1" = '--uninit' ]; then
     rm -f "$PROJFILE" "$PROJFILE.log"
     exit 0
 elif [ "$1" != '--runasdaemon' ]; then #Run remote command
+    if [ "${1:0:1}" == '-' ]; then #Uknown option
+        echo "Uknown option $1" >&2
+        usage
+    fi
     if ! [ -f "$PROJFILE" ]; then
         echo "Project is not initialized, use --init" >&2
         exit 59
