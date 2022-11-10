@@ -19,7 +19,7 @@ jobs:
           sudo apt update
           sudo apt -y install inotify-tools git rsync
       - name: Lint scripts
-        run: make shellcheck
+        run: make check
       - name: Run tests
         run: make test
       - name: ls src repo

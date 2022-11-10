@@ -1,6 +1,6 @@
-all: shellcheck test
+all: check test
 
-shellcheck:
+check:
 	shellcheck --severity=info rp test.sh
 
 test:
@@ -9,4 +9,4 @@ test:
 sshtest:
 	SSHTEST=1 bash test.sh
 
-.PHONY: all shellcheck test
+.PHONY: all check test

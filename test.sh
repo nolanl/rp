@@ -80,7 +80,7 @@ $RP false && fail 96 #Make sure rp is returning cmd status.
 [ ! -d "$DST/ignoreddir" ] || fail 81
 
 $RP ls "test dir" >/dev/null || fail 80
-$RP ls "test dir/nothere" 2>/dev/null && fail 80
+$RP ls "test dir/notthere" 2>/dev/null && fail 80
 
 #Test incremental changes.
 mkdir -p "incr dir/a/b/c/d"
@@ -103,7 +103,7 @@ $RP true || fail 97
 
 #Test that touching a .gitignore file causes daemon restart.
 touch .gitignore
-for i in `seq 1 50`; do
+for i in $(seq 1 50); do
     if $RP --dumplog | grep -q '.gitignore file modified'; then
         break
     fi
