@@ -1,7 +1,7 @@
 all: check test
 
 check:
-	shellcheck --severity=info rp test.sh
+	shellcheck -e SC2129 rp test.sh
 
 test:
 	bash test.sh
